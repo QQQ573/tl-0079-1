@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+
+# Local push utility
+push-via-api.ps1
 
 # Editor directories and files
 .vscode/*
