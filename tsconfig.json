@@ -8,6 +8,7 @@
       "DOM",
       "DOM.Iterable"
     ],
+    "types": ["vitest/globals", "@testing-library/jest-dom", "node"],
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
@@ -31,6 +32,9 @@
   },
   "include": [
     "src",
-    "api"
+    "api",
+    "src/**/__tests__/**/*",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }
