@@ -1,0 +1,138 @@
+## 1. 架构设计
+
+```mermaid
+flowchart TD
+    A["浏览器"] --> B["React 18 前端应用"]
+    B --> C["Zustand 状态管理"]
+    B --> D["组件层"]
+    D --> E["MatrixView 矩阵主视图"]
+    D --> F["ComparisonDrawer 对比抽屉"]
+    D --> G["AlertBanner 异常横幅"]
+    D --> H["SearchBar 搜索栏"]
+    D --> I["Toolbar 工具栏"]
+    C --> J["Mock Data 60 SKU"]
+    B --> K["html-to-image PNG导出"]
+```
+
+纯前端架构，无后端服务，数据以 JSON Mock 内嵌。
+
+## 2. 技术说明
+
+- 前端：React@18 + TypeScript + tailwindcss@3 + vite
+- 初始化工具：vite-init（react-ts 模板）
+- 状态管理：zustand
+- 图表：recharts（雷达图）
+- PNG 导出：html-to-image
+- 图标：lucide-react
+- 后端：无
+- 数据库：无（Mock JSON 内嵌）
+
+## 3. 路由定义
+
+| 路由 | 用途 |
+|------|------|
+| / | 矩阵主页（唯一页面，所有功能聚合） |
+
+## 4. 数据模型
+
+### 4.1 数据模型定义
+
+```mermaid
+erDiagram
+    BRAND ||--o{ SKU : "包含"
+    SKU {
+        string id PK
+        string name
+        string brandId FK
+        string category
+        number salesPercentile
+        number repurchaseRate
+        number socialMention
+        number marginTier
+    }
+    BRAND {
+        string id PK
+        string name
+        string color
+    }
+```
+
+### 4.2 数据定义
+
+- 6 个品牌：喜茶、奈雪的茶、CoCo都可、蜜雪冰城、茶百道、古茗
+- 每品牌 10 个 SKU，共 60 个
+- 四项指标均为 0-100 标准化分值：
+  - salesPercentile：销量排名分位
+  - repurchaseRate：复购率
+  - socialMention：社媒提及
+  - marginTier：毛利档（0-100，每 20 分为一档，共 5 档）
+
+## 5. 组件架构
+
+```
+src/
+├── components/
+│   ├── MatrixGrid.tsx        # 热力矩阵主体
+│   ├── MatrixCell.tsx        # 单元格（颜色映射 + 分值）
+│   ├── MatrixRow.tsx         # 行组件（hover高亮 + 选中态）
+│   ├── BrandGroup.tsx        # 品牌折叠分组
+│   ├── ComparisonDrawer.tsx  # 右侧对比抽屉
+│   ├── RadarChart.tsx        # 雷达图组件
+│   ├── AlertBanner.tsx       # 异常横幅
+│   ├── SearchBar.tsx         # 搜索框
+│   ├── Toolbar.tsx           # 顶部工具栏
+│   └── Legend.tsx            # 图例说明
+├── hooks/
+│   └── useMatrixInteraction.ts # 矩阵交互逻辑 hook
+├── store/
+│   └── useAppStore.ts        # Zustand 全局状态
+├── data/
+│   └── mockData.ts           # 60 SKU Mock 数据
+├── types/
+│   └── index.ts              # TypeScript 类型定义
+├── utils/
+│   ├── colorMapping.ts       # 分值-颜色映射
+│   └── exportPng.ts          # PNG 导出工具
+└── pages/
+    └── MatrixPage.tsx         # 主页面
+```
+
+## 6. 核心交互逻辑
+
+### 6.1 行列高亮
+
+- 使用 CSS `:hover` + React state 联动
+- 行 hover：`onMouseEnter` 设置 `hoveredRowId`，该行所有单元格添加高亮 class
+- 列 hover：`onMouseEnter` 设置 `hoveredColumn`，该列所有单元格添加高亮 class
+- 交叉单元格双重高亮
+
+### 6.2 SKU 选中与对比
+
+- 单击行 → 添加到 `selectedSKUs` 数组（最多 2 个，超过则替换最早的）
+- 2 个选中时自动打开右侧抽屉
+- 抽屉内：recharts RadarChart 渲染四指标对比
+- 异常判断：`|sku1.salesPercentile - sku2.salesPercentile| >= 30 && |sku1.marginTier - sku2.marginTier| >= 40`（40 = 2档 × 20分/档）→ 显示橙色横幅
+
+### 6.3 品牌折叠
+
+- 每品牌组可折叠/展开
+- 折叠态：显示品牌名 + SKU 计数 + 最高热度色块（取该品牌所有 SKU 中 salesPercentile 最高的分值对应颜色）
+- 展开态：显示该品牌下所有 SKU 行
+
+### 6.4 搜索定位
+
+- 输入框中文模糊匹配 SKU name
+- 匹配结果列表点击后，自动滚动到对应行 + 闪烁高亮
+- 使用 `scrollIntoView({ behavior: 'smooth', block: 'center' })`
+
+### 6.5 缩放
+
+- 工具栏滑块控制 `transform: scale(0.6 ~ 1.5)`
+- 支持 Ctrl + 鼠标滚轮
+- CSS transition 200ms ease-out
+
+### 6.6 PNG 导出
+
+- 使用 html-to-image 库的 `toPng()` 方法
+- 导出矩阵容器 DOM 节点
+- 自动下载为 `奶茶爆款矩阵_周报快照.png`
